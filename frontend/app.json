@@ -31,9 +31,10 @@
         "backgroundColor": "#FFFFFF"
       },
       "permissions": [
-        "CAMERA",
-        "USE_BIOMETRIC",
-        "USE_FINGERPRINT"
+        "android.permission.CAMERA",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
@@ -67,7 +68,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": ""
+        "projectId": "ed02123a-39a8-479a-91bd-aa0043d5ecf8"
       }
     }
   }

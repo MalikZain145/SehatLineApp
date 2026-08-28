@@ -1,0 +1,13 @@
+{
+  "name": "sehatline-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Root launcher so single-directory hosts (Bonto, etc.) detect and run the backend, which lives in backend/.",
+  "scripts": {
+    "start": "node backend/server.js",
+    "postinstall": "npm install --prefix backend --no-audit --no-fund"
+  },
+  "engines": {
+    "node": "20.x"
+  }
+}
