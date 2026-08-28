@@ -1,5 +1,5 @@
 # ============================================================
-#  START SEHATLINE  — puts the backend online via a free Cloudflare tunnel.
+#  START SEHATLINE  - puts the backend online via a free Cloudflare tunnel.
 #  Run this whenever you want the app to work. Keep the window OPEN while using
 #  the app; closing it takes the backend offline.
 #  (Double-click start-sehatline.bat, or right-click this file > Run with PowerShell.)
@@ -33,7 +33,7 @@ $errLog = "$log.err"
 $url = $null
 $tunnel = $null
 
-# Reuse an already-running tunnel if it is still alive — this keeps the URL
+# Reuse an already-running tunnel if it is still alive - this keeps the URL
 # STABLE across re-runs (no churn) as long as the original tunnel keeps running.
 $cfProc = Get-Process cloudflared -ErrorAction SilentlyContinue
 if ($cfProc -and (Test-Path $log)) {
@@ -66,7 +66,7 @@ if (-not $url) {
 }
 
 # 4) Publish the URL to GitHub so every installed app finds this backend.
-#    Write UTF-8 WITHOUT a BOM — a leading BOM breaks JSON.parse in the app.
+#    Write UTF-8 WITHOUT a BOM - a leading BOM breaks JSON.parse in the app.
 $json = (@{ apiBaseUrl = $url; note = "AUTO-MANAGED by start-sehatline.ps1." } | ConvertTo-Json)
 [System.IO.File]::WriteAllText((Join-Path $root "backend-url.json"), $json, (New-Object System.Text.UTF8Encoding($false)))
 git add backend-url.json 2>$null
@@ -88,6 +88,6 @@ if ($tunnel) {
   Wait-Process -Id $tunnel.Id
   Write-Host "Tunnel closed. App is now offline." -ForegroundColor Red
 } else {
-  Write-Host "(Reusing a tunnel started by another window — close that window to go offline.)" -ForegroundColor DarkGray
+  Write-Host "(Reusing a tunnel started by another window - close that window to go offline.)" -ForegroundColor DarkGray
   Read-Host "Press Enter to close this window"
 }
