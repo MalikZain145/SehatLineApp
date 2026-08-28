@@ -110,8 +110,13 @@ export let API_BASE_URL = _resolvedBase;
 // app reads it at startup. This means if the backend ever moves (new host, new
 // URL), we just edit that one file and every installed APK picks it up — no
 // rebuild ever needed again.
-const REMOTE_CONFIG_URL =
-  'https://raw.githubusercontent.com/MalikZain145/SehatLineApp/main/backend-url.json';
+// Config sources, tried in order. The GitHub API (raw media type) is served
+// FRESH — no CDN cache — so a just-published tunnel URL is picked up within
+// seconds. raw.githubusercontent (which caches ~5 min) is only the fallback.
+const CONFIG_SOURCES = [
+  { url: 'https://api.github.com/repos/MalikZain145/SehatLineApp/contents/backend-url.json?ref=main', sep: '&', headers: { Accept: 'application/vnd.github.raw', 'User-Agent': 'SehatLine-App' } },
+  { url: 'https://raw.githubusercontent.com/MalikZain145/SehatLineApp/main/backend-url.json', sep: '?', headers: {} },
+];
 const API_BASE_CACHE_KEY = '@sehatline_api_base';
 
 function normalizeBase(url) {
@@ -133,29 +138,33 @@ export async function bootstrapApiBaseUrl() {
     const cached = await AsyncStorage.getItem(API_BASE_CACHE_KEY);
     if (cached) { _resolvedBase = cached; API_BASE_URL = cached; }
   } catch (e) { /* ignore */ }
-  // 2) Fresh: the current tunnel URL published on GitHub (with a hard timeout
-  // so a slow/unreachable GitHub never blocks app startup).
-  try {
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 6000);
-    const res = await fetch(`${REMOTE_CONFIG_URL}?t=${Date.now()}`, {
-      headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
-      signal: controller.signal,
-    });
-    clearTimeout(t);
-    if (res.ok) {
-      // Read as text and strip a leading BOM before parsing — some editors/hosts
-      // prefix the file with a BOM, which makes JSON.parse throw.
-      let raw = await res.text(); if (raw.charCodeAt(0) === 0xFEFF) raw = raw.slice(1); raw = raw.trim();
-      const j = JSON.parse(raw);
-      const base = normalizeBase(j && j.apiBaseUrl);
-      if (base) {
-        _resolvedBase = base;
-        API_BASE_URL = base;
-        try { await AsyncStorage.setItem(API_BASE_CACHE_KEY, base); } catch (e) { /* ignore */ }
+  // 2) Fresh: the current tunnel URL published on GitHub. Try the uncached API
+  // first, then the raw CDN, each with a hard timeout so a slow/unreachable
+  // GitHub never blocks app startup.
+  for (const src of CONFIG_SOURCES) {
+    try {
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(`${src.url}${src.sep}t=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache', ...src.headers },
+        signal: controller.signal,
+      });
+      clearTimeout(t);
+      if (res.ok) {
+        // Read as text and strip a leading BOM before parsing — some hosts
+        // prefix the file with a BOM, which makes JSON.parse throw.
+        let raw = await res.text(); if (raw.charCodeAt(0) === 0xFEFF) raw = raw.slice(1); raw = raw.trim();
+        const j = JSON.parse(raw);
+        const base = normalizeBase(j && j.apiBaseUrl);
+        if (base) {
+          _resolvedBase = base;
+          API_BASE_URL = base;
+          try { await AsyncStorage.setItem(API_BASE_CACHE_KEY, base); } catch (e) { /* ignore */ }
+          break; // got a fresh URL — stop trying sources
+        }
       }
-    }
-  } catch (e) { /* offline / not published yet — keep cache or default */ }
+    } catch (e) { /* try the next source */ }
+  }
   console.log('[SehatLine] API base URL →', _resolvedBase);
   return _resolvedBase;
 }

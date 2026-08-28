@@ -30,23 +30,40 @@ if (-not $listening) {
 # 3) Open the tunnel and capture its public URL.
 $log = Join-Path $root "tunnel.tunnel.log"
 $errLog = "$log.err"
-if (Test-Path $log) { Remove-Item $log -Force }
-if (Test-Path $errLog) { Remove-Item $errLog -Force }
-$tunnel = Start-Process -FilePath $cf -ArgumentList 'tunnel','--url','http://localhost:5000' `
-  -RedirectStandardOutput $log -RedirectStandardError $errLog -PassThru -WindowStyle Minimized
-
-Write-Host "Opening secure tunnel..." -ForegroundColor Yellow
 $url = $null
-for ($i = 0; $i -lt 30; $i++) {
-  Start-Sleep -Seconds 2
-  $content = (Get-Content $log, $errLog -ErrorAction SilentlyContinue | Out-String)
-  if ($content -match "https://[a-z0-9-]+\.trycloudflare\.com") { $url = $Matches[0]; break }
+$tunnel = $null
+
+# Reuse an already-running tunnel if it is still alive — this keeps the URL
+# STABLE across re-runs (no churn) as long as the original tunnel keeps running.
+$cfProc = Get-Process cloudflared -ErrorAction SilentlyContinue
+if ($cfProc -and (Test-Path $log)) {
+  $prev = Select-String -Path $log, $errLog -Pattern 'https://[a-z0-9-]+\.trycloudflare\.com' -ErrorAction SilentlyContinue | Select-Object -Last 1
+  if ($prev) {
+    $candidate = $prev.Matches[0].Value
+    try {
+      $r = Invoke-WebRequest -Uri "$candidate/api/health" -TimeoutSec 8 -UseBasicParsing
+      if ($r.StatusCode -eq 200) { $url = $candidate; Write-Host "Reusing existing live tunnel: $url" -ForegroundColor Green }
+    } catch { }
+  }
 }
+
 if (-not $url) {
-  Write-Host "Could not open the tunnel. Check $errLog" -ForegroundColor Red
-  Read-Host "Press Enter to exit"; exit 1
+  if (Test-Path $log) { Remove-Item $log -Force }
+  if (Test-Path $errLog) { Remove-Item $errLog -Force }
+  $tunnel = Start-Process -FilePath $cf -ArgumentList 'tunnel','--url','http://localhost:5000' `
+    -RedirectStandardOutput $log -RedirectStandardError $errLog -PassThru -WindowStyle Minimized
+  Write-Host "Opening secure tunnel..." -ForegroundColor Yellow
+  for ($i = 0; $i -lt 30; $i++) {
+    Start-Sleep -Seconds 2
+    $content = (Get-Content $log, $errLog -ErrorAction SilentlyContinue | Out-String)
+    if ($content -match "https://[a-z0-9-]+\.trycloudflare\.com") { $url = $Matches[0]; break }
+  }
+  if (-not $url) {
+    Write-Host "Could not open the tunnel. Check $errLog" -ForegroundColor Red
+    Read-Host "Press Enter to exit"; exit 1
+  }
+  Write-Host "Tunnel URL: $url" -ForegroundColor Green
 }
-Write-Host "Tunnel URL: $url" -ForegroundColor Green
 
 # 4) Publish the URL to GitHub so every installed app finds this backend.
 #    Write UTF-8 WITHOUT a BOM — a leading BOM breaks JSON.parse in the app.
@@ -65,6 +82,12 @@ Write-Host "  KEEP THIS WINDOW OPEN while using the app." -ForegroundColor Yello
 Write-Host "  Close it (or Ctrl+C) to take the app offline." -ForegroundColor Yellow
 Write-Host "====================================================" -ForegroundColor Cyan
 
-# 5) Stay alive with the tunnel.
-Wait-Process -Id $tunnel.Id
-Write-Host "Tunnel closed. App is now offline." -ForegroundColor Red
+# 5) Stay alive with the tunnel. If we started one, wait on it; if we reused an
+#    existing tunnel, keep this window open so the user can close it deliberately.
+if ($tunnel) {
+  Wait-Process -Id $tunnel.Id
+  Write-Host "Tunnel closed. App is now offline." -ForegroundColor Red
+} else {
+  Write-Host "(Reusing a tunnel started by another window — close that window to go offline.)" -ForegroundColor DarkGray
+  Read-Host "Press Enter to close this window"
+}
