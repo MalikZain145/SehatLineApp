@@ -20,7 +20,7 @@ import { Platform, NativeModules } from 'react-native';
 // IMPORTANT: this must match your ACTUAL Render service URL. If you name the
 // Render service "sehatline-backend" the URL is exactly the one below; if Render
 // gave a different name/suffix, paste that full https URL here (no trailing /).
-const PRODUCTION_API_URL = 'https://sehatline-backend.onrender.com';
+const PRODUCTION_API_URL = 'https://sehatlineapp1-9x00bewm.b4a.run';
 // TRUE so the shipped APK talks to the hosted backend (not a dev LAN IP).
 // Flip back to false for local development against your PC's backend.
 const USE_PRODUCTION = true;
