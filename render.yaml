@@ -12,7 +12,7 @@ services:
                           # and the 2 PM cron backup / live sockets won't run while
                           # asleep). Use "starter" ($7/mo) for an always-on service.
     region: singapore     # closest free region to Pakistan
-    rootDir: backend      # this file lives in backend/, repo root has backend/ + frontend/
+    rootDir: backend      # blueprint is at repo root; backend code lives in backend/
     buildCommand: npm install
     startCommand: node server.js
     healthCheckPath: /api/health
