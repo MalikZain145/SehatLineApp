@@ -36,3 +36,7 @@ Thumbs.db
 
 # Claude Code local settings
 .claude/
+
+# Tunnel tooling (local only)
+cloudflared.exe
+*.tunnel.log

@@ -1,4 +1,4 @@
 {
-  "apiBaseUrl": "https://REPLACE-WITH-AZURE-URL.azurewebsites.net",
-  "note": "The app reads this at startup to find the backend. When the backend host/URL changes, edit apiBaseUrl here and push — installed apps pick it up, no rebuild. Do not delete."
+  "apiBaseUrl": "https://cylinder-mba-effective-facilities.trycloudflare.com",
+  "note": "AUTO-MANAGED by start-sehatline.ps1. It writes the current Cloudflare tunnel URL here and pushes on each run. The app reads this at startup to find the backend. Do not delete."
 }
