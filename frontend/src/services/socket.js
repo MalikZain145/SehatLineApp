@@ -4,7 +4,7 @@
 // socket.io-client is loaded defensively — if it isn't installed yet, the
 // app still works (real-time just won't fire) instead of crashing.
 
-import { API_BASE_URL } from '../config/api.config';
+import { getApiBaseUrl } from '../config/api.config';
 
 let ioClient = null;
 try {
@@ -14,8 +14,11 @@ try {
   ioClient = null;
 }
 
-// API_BASE_URL ends with /api — strip it for the socket origin.
-const SOCKET_URL = API_BASE_URL.replace(/\/api$/, '');
+// The base URL ends with /api — strip it for the socket origin. Resolved at
+// connect time (not import) so it reflects the dynamically-loaded backend URL.
+function getSocketUrl() {
+  return getApiBaseUrl().replace(/\/api$/, '');
+}
 
 let socket = null;
 
@@ -24,7 +27,7 @@ export function connectSocket() {
   if (!ioClient) return null; // socket.io-client not installed
   if (socket && socket.connected) return socket;
   if (!socket) {
-    socket = ioClient(SOCKET_URL, {
+    socket = ioClient(getSocketUrl(), {
       transports: ['websocket'],
       reconnection: true,
       reconnectionAttempts: Infinity,

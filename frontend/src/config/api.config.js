@@ -15,6 +15,7 @@
 
 import Constants from 'expo-constants';
 import { Platform, NativeModules } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ---- Production (hosted) backend, used only when USE_PRODUCTION = true ----
 // IMPORTANT: this must match your ACTUAL Render service URL. If you name the
@@ -100,10 +101,61 @@ function resolveBaseUrl() {
   return `http://localhost:${LOCAL_PORT}/api`;
 }
 
-export const API_BASE_URL = resolveBaseUrl();
+// Initial / fallback base URL (used until the remote config loads, and if it
+// can't be fetched). `let` so live-binding importers see the refreshed value.
+let _resolvedBase = resolveBaseUrl();
+export let API_BASE_URL = _resolvedBase;
 
-// Log the resolved URL once so you can see what it picked (check Metro logs).
-console.log('[SehatLine] API base URL →', API_BASE_URL);
+// The CURRENT backend URL is published to a tiny JSON file on GitHub, and the
+// app reads it at startup. This means if the backend ever moves (new host, new
+// URL), we just edit that one file and every installed APK picks it up — no
+// rebuild ever needed again.
+const REMOTE_CONFIG_URL =
+  'https://raw.githubusercontent.com/MalikZain145/SehatLineApp/main/backend-url.json';
+const API_BASE_CACHE_KEY = '@sehatline_api_base';
+
+function normalizeBase(url) {
+  const u = String(url || '').trim().replace(/\/+$/, '');
+  if (!u || !/^https?:\/\//i.test(u)) return null;
+  return u.endsWith('/api') ? u : `${u}/api`;
+}
+
+// Whatever the dynamic resolver last settled on. apiClient/socket read this.
+export function getApiBaseUrl() {
+  return _resolvedBase;
+}
+
+// Run ONCE at app startup, before the first API call. Uses the cached URL
+// instantly, then refreshes from the GitHub config in the background.
+export async function bootstrapApiBaseUrl() {
+  // 1) Instant: last known good URL from cache.
+  try {
+    const cached = await AsyncStorage.getItem(API_BASE_CACHE_KEY);
+    if (cached) { _resolvedBase = cached; API_BASE_URL = cached; }
+  } catch (e) { /* ignore */ }
+  // 2) Fresh: the current tunnel URL published on GitHub (with a hard timeout
+  // so a slow/unreachable GitHub never blocks app startup).
+  try {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(`${REMOTE_CONFIG_URL}?t=${Date.now()}`, {
+      headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
+      signal: controller.signal,
+    });
+    clearTimeout(t);
+    if (res.ok) {
+      const j = await res.json();
+      const base = normalizeBase(j && j.apiBaseUrl);
+      if (base) {
+        _resolvedBase = base;
+        API_BASE_URL = base;
+        try { await AsyncStorage.setItem(API_BASE_CACHE_KEY, base); } catch (e) { /* ignore */ }
+      }
+    }
+  } catch (e) { /* offline / not published yet — keep cache or default */ }
+  console.log('[SehatLine] API base URL →', _resolvedBase);
+  return _resolvedBase;
+}
 
 // Session heartbeat interval (ms).
 export const HEARTBEAT_INTERVAL_MS = 60 * 1000;

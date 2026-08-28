@@ -10,7 +10,7 @@
 // ============================================================
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_BASE_URL } from '../config/api.config';
+import { getApiBaseUrl } from '../config/api.config';
 
 const TOKEN_KEY = 'auth_token';
 const FP_KEY = 'device_fingerprint_hash';
@@ -49,7 +49,7 @@ async function request(path, { method = 'GET', body, headers = {}, isForm = fals
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    res = await fetch(`${API_BASE_URL}${path}`, {
+    res = await fetch(`${getApiBaseUrl()}${path}`, {
       method,
       headers: finalHeaders,
       body: isForm ? body : body ? JSON.stringify(body) : undefined,

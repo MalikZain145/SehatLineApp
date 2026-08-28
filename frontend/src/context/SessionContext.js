@@ -22,7 +22,7 @@ import { setUnauthorizedHandler } from '../services/apiClient';
 import { getExpoPushToken, addNotificationResponseListener } from '../services/notifications';
 import { onSystemRestart } from '../services/socket';
 import { reloadApp, applyDeployedUpdate } from '../utils/appReload';
-import { INACTIVITY_LIMIT_MS, HEARTBEAT_INTERVAL_MS } from '../config/api.config';
+import { INACTIVITY_LIMIT_MS, HEARTBEAT_INTERVAL_MS, bootstrapApiBaseUrl } from '../config/api.config';
 
 const SessionContext = createContext(null);
 
@@ -114,6 +114,9 @@ export function SessionProvider({ children, navigationRef }) {
     applyDeployedUpdate().catch(() => {});
     (async () => {
       try {
+        // Resolve the current backend URL (from the GitHub config) BEFORE any
+        // API call, so login/session validation hit the live tunnel address.
+        await bootstrapApiBaseUrl();
         const raw = await AsyncStorage.getItem(authService.USER_KEY);
         if (raw) {
           // Validate with server
