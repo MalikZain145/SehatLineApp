@@ -1,4 +1,4 @@
-{
-  "apiBaseUrl": "https://cylinder-mba-effective-facilities.trycloudflare.com",
-  "note": "AUTO-MANAGED by start-sehatline.ps1. It writes the current Cloudflare tunnel URL here and pushes on each run. The app reads this at startup to find the backend. Do not delete."
+﻿{
+    "note":  "AUTO-MANAGED by start-sehatline.ps1.",
+    "apiBaseUrl":  "https://active-islamic-lover-sufficient.trycloudflare.com"
 }
