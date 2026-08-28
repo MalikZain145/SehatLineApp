@@ -40,3 +40,5 @@ Thumbs.db
 # Tunnel tooling (local only)
 cloudflared.exe
 *.tunnel.log
+tunnel.tunnel.log*
+backend.tunnel.log
