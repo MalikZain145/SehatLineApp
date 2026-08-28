@@ -144,7 +144,10 @@ export async function bootstrapApiBaseUrl() {
     });
     clearTimeout(t);
     if (res.ok) {
-      const j = await res.json();
+      // Read as text and strip a leading BOM before parsing — some editors/hosts
+      // prefix the file with a BOM, which makes JSON.parse throw.
+      let raw = await res.text(); if (raw.charCodeAt(0) === 0xFEFF) raw = raw.slice(1); raw = raw.trim();
+      const j = JSON.parse(raw);
       const base = normalizeBase(j && j.apiBaseUrl);
       if (base) {
         _resolvedBase = base;

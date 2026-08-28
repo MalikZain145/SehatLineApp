@@ -49,8 +49,9 @@ if (-not $url) {
 Write-Host "Tunnel URL: $url" -ForegroundColor Green
 
 # 4) Publish the URL to GitHub so every installed app finds this backend.
-@{ apiBaseUrl = $url; note = "AUTO-MANAGED by start-sehatline.ps1." } |
-  ConvertTo-Json | Set-Content -Path (Join-Path $root "backend-url.json") -Encoding utf8
+#    Write UTF-8 WITHOUT a BOM — a leading BOM breaks JSON.parse in the app.
+$json = (@{ apiBaseUrl = $url; note = "AUTO-MANAGED by start-sehatline.ps1." } | ConvertTo-Json)
+[System.IO.File]::WriteAllText((Join-Path $root "backend-url.json"), $json, (New-Object System.Text.UTF8Encoding($false)))
 git add backend-url.json 2>$null
 git commit -m "Update backend tunnel URL" 2>$null | Out-Null
 git push 2>$null | Out-Null
