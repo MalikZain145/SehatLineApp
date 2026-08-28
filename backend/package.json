@@ -1,0 +1,60 @@
+{
+  "name": "sehatline-backend",
+  "version": "2.1.0",
+  "description": "SehatLine — Healthcare app backend. Node/Express + MongoDB + Python ML priority service.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server-supervisor.js",
+    "start:cluster": "node cluster.js",
+    "dev": "nodemon server.js",
+    "seed": "node seed/seed.js",
+    "queue-test": "node scripts/queue-load-test.js",
+    "app-load-test": "node scripts/app-load-test.js",
+    "system-report": "node scripts/system-report.js",
+    "integration-test": "node scripts/integration-test.js",
+    "reset-db": "node seed/reset-db.js",
+    "delete-user": "node seed/delete-user.js",
+    "check-duplicates": "node seed/check-duplicates.js",
+    "ml:train": "cd ../ml-service && python train_model.py",
+    "ml:serve": "cd ../ml-service && python -m uvicorn server:app --host 127.0.0.1 --port 8000",
+    "ml:loadtest": "cd ../ml-service && python loadtest.py",
+    "start:plain": "node server.js"
+  },
+  "keywords": [
+    "healthcare",
+    "sehatline",
+    "express",
+    "mongodb"
+  ],
+  "author": "Muhammad Zain Ul Abideen",
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
+    "expo-server-sdk": "^7.1.0",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^8.3.0",
+    "jimp": "^0.22.12",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.5.1",
+    "morgan": "^1.10.0",
+    "multer": "^2.2.0",
+    "node-cron": "^4.6.0",
+    "nodemailer": "^6.9.14",
+    "pdfkit": "^0.19.1",
+    "request-ip": "^3.3.0",
+    "socket.io": "^4.7.5",
+    "tesseract.js": "^5.1.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

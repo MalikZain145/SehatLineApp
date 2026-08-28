@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Secrets / env
+.env
+**/.env
+.env.local
+**/.env.local
+
+# Expo / build
+.expo/
+**/.expo/
+dist/
+web-build/
+*.apk
+*.aab
+
+# Backend runtime artifacts (ephemeral)
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/backups/
+backend/logs/
+*.log
+
+# Python ML service
+ml-service/__pycache__/
+ml-service/*.pt
+ml-service/.venv/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Claude Code local settings
+.claude/

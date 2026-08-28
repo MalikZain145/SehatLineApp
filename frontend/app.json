@@ -1,0 +1,74 @@
+{
+  "expo": {
+    "name": "SehatLine",
+    "slug": "sehatline",
+    "version": "5.3.0",
+    "orientation": "portrait",
+    "scheme": "sehatline",
+    "icon": "./assets/sehatline-icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash-native.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sehatline.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "SehatLine needs camera access to capture your CNIC for verification.",
+        "NSFaceIDUsageDescription": "SehatLine uses Face ID / Touch ID to securely log you in.",
+        "NSPhotoLibraryUsageDescription": "SehatLine does not use your gallery for CNIC; camera capture is required."
+      }
+    },
+    "android": {
+      "package": "com.sehatline.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "permissions": [
+        "CAMERA",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "SehatLine needs camera access to capture your CNIC for verification."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "SehatLine uses Face ID / Touch ID to securely log you in."
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#0BAA9D"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "SehatLine uses the camera to verify your CNIC."
+        }
+      ],
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": ""
+      }
+    }
+  }
+}
