@@ -1,0 +1,14 @@
+# Keep the build context small & the image clean when building from repo root.
+frontend
+ml-service
+**/node_modules
+node_modules
+**/.env
+.env
+.git
+.gitignore
+*.log
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/backups
+backend/logs
