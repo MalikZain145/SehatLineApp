@@ -344,33 +344,35 @@ const {
         )}
 
         {item.status === "Processing" && (
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => completePatient(item.id)}
+          // Non-clickable — the test auto-completes when the report is uploaded
+          // (the technician no longer marks it complete manually).
+          <View
             style={[
               styles.actionButton,
               {
-                backgroundColor: colors.success,
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.border,
               },
             ]}
           >
             <Ionicons
-              name="checkmark-circle-outline"
+              name="cloud-upload-outline"
               size={17}
-              color={colors.white}
+              color={colors.textSecondary}
             />
 
             <Text
               style={[
                 styles.actionButtonText,
                 {
-                  color: colors.white,
+                  color: colors.textSecondary,
                 },
               ]}
             >
-              Mark Completed
+              Waiting for report to be uploaded
             </Text>
-          </TouchableOpacity>
+          </View>
         )}
 
         {item.status === "Completed" && (

@@ -203,7 +203,7 @@ export default function ProfileScreen({ navigation }) {
   <TouchableOpacity
     activeOpacity={0.8}
     onPress={() =>
-      navigation.getParent()?.navigate("EditProfile")
+      navigation.navigate("EditProfile")
     }
     style={[
       styles.editIconButton,

@@ -307,6 +307,31 @@ async function uploadReport(req, res, next) {
       icon: 'document-text', screen: 'ReportsScreen', refId: String(report._id),
     });
 
+    // Uploading the report IS the completion — auto-finish this patient's
+    // in-queue lab test so the technician never marks it complete manually.
+    try {
+      const pending = await Prescription.findOne({
+        user: user._id,
+        labStatus: { $in: ['pending', 'collected', 'processing'] },
+        tests: { $exists: true, $ne: [] },
+      }).sort({ createdAt: 1 });
+      if (pending) {
+        pending.labStatus = 'completed';
+        pending.labCompletedAt = new Date();
+        pending.labReport = report._id;
+        if (req.user.counterNumber) pending.labCounter = String(req.user.counterNumber).trim();
+        await pending.save();
+        const token = await Token.findById(pending.token);
+        if (token && token.status !== 'completed') {
+          token.department = 'done';
+          token.status = 'completed';
+          token.completedAt = new Date();
+          token.log('Lab report uploaded — journey complete');
+          await token.save();
+        }
+      }
+    } catch (e) { /* best-effort — the report is already delivered to the patient */ }
+
     logger.db('INSERT', 'LabReport', `upload for card ${card} (${user.name}) by ${req.user.email}`);
     broadcast(req);
     return res.status(201).json({ success: true, reportId: String(report._id), patient: user.name, cardNo: card });
