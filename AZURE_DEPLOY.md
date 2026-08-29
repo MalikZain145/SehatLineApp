@@ -26,7 +26,7 @@ Open the Web App → **Settings → Configuration**:
 **Application settings** (→ New application setting, add each):
 | Name | Value |
 |---|---|
-| `MONGO_URI` | `mongodb+srv://mzainulabideen918_db_user:Zain123987101@cluster0.dmhkpnp.mongodb.net/SehatLineApp?retryWrites=true&w=majority` |
+| `MONGO_URI` | `mongodb+srv://<user>:<password>@<cluster>.mongodb.net/SehatLineApp?retryWrites=true&w=majority` |
 | `JWT_SECRET` | `77a957248ed9dee7143a139470df4a16d922d7ec3c8a196fcedf7f225b472567a93498dd489c5d4209a07a40ec070436` |
 | `ML_AUTOSTART` | `false` |
 | `SCM_DO_BUILD_DURING_DEPLOYMENT` | `true` |
