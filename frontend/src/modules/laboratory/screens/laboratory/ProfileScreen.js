@@ -40,17 +40,26 @@ export default function ProfileScreen({ navigation }) {
         mediaTypes: ["images"],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.8,
+        quality: 0.4,
+        base64: true,
       });
 
     if (result.canceled) {
       return;
     }
 
-    const imageUri = result.assets?.[0]?.uri;
+    const a = result.assets?.[0];
+    const imageUri = a?.base64 ? `data:image/jpeg;base64,${a.base64}` : a?.uri;
 
     if (imageUri) {
       setProfileImage(imageUri);
+      // Persist it so it also shows in the side menu and everywhere else.
+      try {
+        await laboratoryService.updateProfile({ profilePic: imageUri });
+        labAlert("Photo Updated", "Your profile picture has been updated.");
+      } catch (e) {
+        labAlert("Error", "Could not save the photo. Please try again.");
+      }
     }
   } catch (error) {
     console.log("Profile image error:", error);
@@ -64,11 +73,12 @@ export default function ProfileScreen({ navigation }) {
 
   const [profile, setProfile] = useState({
     name: "Laboratory",
-    role: "Laboratory Technician",
+    role: "Laboratorist",
     employeeId: "—",
     department: "Laboratory Department",
     email: "",
     phone: "",
+    counterNumber: "",
   });
 
   useEffect(() => {
@@ -79,11 +89,12 @@ export default function ProfileScreen({ navigation }) {
         if (u) {
           setProfile({
             name: u.name || "Laboratory",
-            role: "Laboratory Technician",
+            role: "Laboratorist",
             employeeId: u.employeeId || "—",
             department: u.department || "Laboratory Department",
             email: u.email || "",
             phone: u.phone || "",
+            counterNumber: u.counterNumber ? String(u.counterNumber) : "",
           });
           if (u.profilePic) setProfileImage(u.profilePic);
         }
@@ -170,8 +181,9 @@ export default function ProfileScreen({ navigation }) {
           color: colors.text,
         },
       ]}
+      numberOfLines={1}
     >
-      Laboratory Technician
+      {profile.name}
     </Text>
 
     <Text
@@ -182,7 +194,7 @@ export default function ProfileScreen({ navigation }) {
         },
       ]}
     >
-      Laboratory Department
+      Laboratorist{profile.counterNumber ? ` · Counter ${profile.counterNumber}` : ""}
     </Text>
   </View>
 
@@ -286,6 +298,13 @@ export default function ProfileScreen({ navigation }) {
             icon="card-outline"
             label="Employee ID"
             value={profile.employeeId}
+            colors={colors}
+          />
+
+          <InfoRow
+            icon="grid-outline"
+            label="Counter Number"
+            value={profile.counterNumber ? `Counter ${profile.counterNumber}` : "Not set — tap Edit to add"}
             colors={colors}
           />
 

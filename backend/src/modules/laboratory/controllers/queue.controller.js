@@ -138,8 +138,8 @@ async function updateStatus(req, res, next) {
     const label = counterLabel(req.user);
     if (target === 'collected') {
       notifyUser(p.user, {
-        type: 'lab', title: 'Sample collected',
-        body: `Your sample for ${(p.tests || []).join(', ')} (Token ${p.tokenNumber}) has been collected at ${label}.`,
+        type: 'lab', title: 'You have been called to the laboratory',
+        body: `Please proceed to ${label} for your ${(p.tests || []).join(', ')} sample (Token ${p.tokenNumber}).`,
         icon: 'flask', screen: 'LabDashboard', refId: String(p._id),
       });
     } else {

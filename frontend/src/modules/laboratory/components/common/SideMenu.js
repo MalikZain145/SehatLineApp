@@ -96,7 +96,7 @@ export default function SideMenu({ visible, onClose }) {
             )}
           </View>
           <Text style={styles.name}>{profile.name || "Laboratory"}</Text>
-          <Text style={styles.role}>Laboratory</Text>
+          <Text style={styles.role}>Laboratorist</Text>
           {!!profile.email && <Text style={styles.email}>{profile.email}</Text>}
         </LinearGradient>
 
