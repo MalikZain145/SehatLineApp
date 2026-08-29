@@ -19,13 +19,9 @@ const env = {
   port: process.env.PORT || 5000,
   nodeEnv: process.env.NODE_ENV || 'development',
 
-  // Prefer MONGO_URI from the environment (.env). The fallback below is the
-  // shared Atlas demo database, so a fresh clone on any laptop runs with just
-  // `npm start` (no per-laptop setup). NOTE: this is a TEST database — make the
-  // GitHub repo PRIVATE, or rotate this password, before any real deployment.
-  mongoUri:
-    process.env.MONGO_URI ||
-    'mongodb+srv://mzainulabideen918_db_user:Zain123987101@cluster0.dmhkpnp.mongodb.net/SehatLineApp?retryWrites=true&w=majority',
+  // Local MongoDB by default (make sure the MongoDB service is running). Set
+  // MONGO_URI in .env to point at a different database (e.g. Atlas) if needed.
+  mongoUri: process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/SehatLineApp',
 
   jwtSecret: process.env.JWT_SECRET || 'dev_insecure_secret_change_me',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
