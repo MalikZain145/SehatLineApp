@@ -57,6 +57,22 @@ async function start() {
   await connectDB();
   printSchemas();
 
+  // Auto-seed the demo data on first start, so a fresh clone / new laptop works
+  // with just `npm start` — no separate (and error-prone) `npm run seed`.
+  // Idempotent: it only seeds when no staff (admin) account exists yet.
+  try {
+    const User = require('./src/modules/auth/models/User');
+    const alreadySeeded = await User.exists({ role: 'admin' });
+    if (!alreadySeeded) {
+      console.log('\x1b[36m[seed] Empty database — seeding demo data (staff, doctors, pharmacy & lab)…\x1b[0m');
+      const { seedAll } = require('./seed/seed');
+      await seedAll();
+      console.log('\x1b[32m[seed] ✔ Demo data ready.\x1b[0m');
+    }
+  } catch (e) {
+    console.warn('\x1b[33m[seed] Auto-seed skipped:', e.message, '\x1b[0m');
+  }
+
   // Bring the Python priority ML service up alongside Node (best-effort).
   // Under cluster mode the PRIMARY starts it once, so workers skip it here.
   const cluster = require('cluster');

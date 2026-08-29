@@ -77,10 +77,9 @@ const STAFF = [
 
 const c = { green: '\x1b[32m', cyan: '\x1b[36m', yellow: '\x1b[33m', gray: '\x1b[90m', bold: '\x1b[1m', reset: '\x1b[0m' };
 
-async function run() {
-  await mongoose.connect(env.mongoUri);
-  console.log(`${c.green}Connected to DB for seeding: ${mongoose.connection.name}${c.reset}\n`);
-
+// The actual seeding — assumes an ACTIVE mongoose connection. Reused by the CLI
+// (npm run seed) AND by the server on first start (auto-seed). Idempotent.
+async function seedAll() {
   const results = [];
 
   for (const s of STAFF) {
@@ -172,11 +171,25 @@ async function run() {
     console.log(`${c.gray}(laboratory seed skipped: ${e.message})${c.reset}`);
   }
 
+  return results;
+}
+
+// CLI entry point (npm run seed): connect, seed, disconnect, exit.
+async function run() {
+  await mongoose.connect(env.mongoUri);
+  console.log(`${c.green}Connected to DB for seeding: ${mongoose.connection.name}${c.reset}\n`);
+  await seedAll();
   await mongoose.disconnect();
   process.exit(0);
 }
 
-run().catch((err) => {
-  console.error('Seed failed:', err);
-  process.exit(1);
-});
+// Only run the CLI flow when executed directly (node seed/seed.js). When the
+// server require()s this file for auto-seed, it just imports seedAll().
+if (require.main === module) {
+  run().catch((err) => {
+    console.error('Seed failed:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = { seedAll };

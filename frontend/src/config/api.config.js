@@ -15,16 +15,15 @@
 
 import Constants from 'expo-constants';
 import { Platform, NativeModules } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ---- Production (hosted) backend, used only when USE_PRODUCTION = true ----
 // IMPORTANT: this must match your ACTUAL Render service URL. If you name the
 // Render service "sehatline-backend" the URL is exactly the one below; if Render
 // gave a different name/suffix, paste that full https URL here (no trailing /).
 const PRODUCTION_API_URL = 'https://sehatlineapp1-9x00bewm.b4a.run';
-// TRUE so the shipped APK talks to the hosted backend (not a dev LAN IP).
-// Flip back to false for local development against your PC's backend.
-const USE_PRODUCTION = true;
+// FALSE = the app auto-detects your PC's LAN IP (local development). Set TRUE
+// only when shipping an APK that must talk to a fixed hosted backend URL.
+const USE_PRODUCTION = false;
 
 const LOCAL_PORT = 5000;
 
@@ -101,71 +100,24 @@ function resolveBaseUrl() {
   return `http://localhost:${LOCAL_PORT}/api`;
 }
 
-// Initial / fallback base URL (used until the remote config loads, and if it
-// can't be fetched). `let` so live-binding importers see the refreshed value.
+// The backend runs on the SAME PC as the Expo/Metro dev server, so the app
+// reuses the LAN IP the phone is already connected to (getDevServerIp above).
+// The frontend auto-detects the backend IP - no manual configuration needed.
+// getApiBaseUrl()/bootstrapApiBaseUrl() are kept so apiClient, socket and
+// SessionContext need no changes.
 let _resolvedBase = resolveBaseUrl();
 export let API_BASE_URL = _resolvedBase;
 
-// The CURRENT backend URL is published to a tiny JSON file on GitHub, and the
-// app reads it at startup. This means if the backend ever moves (new host, new
-// URL), we just edit that one file and every installed APK picks it up — no
-// rebuild ever needed again.
-// Config sources, tried in order. The GitHub API (raw media type) is served
-// FRESH — no CDN cache — so a just-published tunnel URL is picked up within
-// seconds. raw.githubusercontent (which caches ~5 min) is only the fallback.
-const CONFIG_SOURCES = [
-  { url: 'https://api.github.com/repos/MalikZain145/SehatLineApp/contents/backend-url.json?ref=main', sep: '&', headers: { Accept: 'application/vnd.github.raw', 'User-Agent': 'SehatLine-App' } },
-  { url: 'https://raw.githubusercontent.com/MalikZain145/SehatLineApp/main/backend-url.json', sep: '?', headers: {} },
-];
-const API_BASE_CACHE_KEY = '@sehatline_api_base';
-
-function normalizeBase(url) {
-  const u = String(url || '').trim().replace(/\/+$/, '');
-  if (!u || !/^https?:\/\//i.test(u)) return null;
-  return u.endsWith('/api') ? u : `${u}/api`;
-}
-
-// Whatever the dynamic resolver last settled on. apiClient/socket read this.
 export function getApiBaseUrl() {
   return _resolvedBase;
 }
 
-// Run ONCE at app startup, before the first API call. Uses the cached URL
-// instantly, then refreshes from the GitHub config in the background.
+// Re-resolve the local backend URL at startup (the dev-server IP is available
+// by then). Purely local - no remote/network config.
 export async function bootstrapApiBaseUrl() {
-  // 1) Instant: last known good URL from cache.
-  try {
-    const cached = await AsyncStorage.getItem(API_BASE_CACHE_KEY);
-    if (cached) { _resolvedBase = cached; API_BASE_URL = cached; }
-  } catch (e) { /* ignore */ }
-  // 2) Fresh: the current tunnel URL published on GitHub. Try the uncached API
-  // first, then the raw CDN, each with a hard timeout so a slow/unreachable
-  // GitHub never blocks app startup.
-  for (const src of CONFIG_SOURCES) {
-    try {
-      const controller = new AbortController();
-      const t = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch(`${src.url}${src.sep}t=${Date.now()}`, {
-        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache', ...src.headers },
-        signal: controller.signal,
-      });
-      clearTimeout(t);
-      if (res.ok) {
-        // Read as text and strip a leading BOM before parsing — some hosts
-        // prefix the file with a BOM, which makes JSON.parse throw.
-        let raw = await res.text(); if (raw.charCodeAt(0) === 0xFEFF) raw = raw.slice(1); raw = raw.trim();
-        const j = JSON.parse(raw);
-        const base = normalizeBase(j && j.apiBaseUrl);
-        if (base) {
-          _resolvedBase = base;
-          API_BASE_URL = base;
-          try { await AsyncStorage.setItem(API_BASE_CACHE_KEY, base); } catch (e) { /* ignore */ }
-          break; // got a fresh URL — stop trying sources
-        }
-      }
-    } catch (e) { /* try the next source */ }
-  }
-  console.log('[SehatLine] API base URL →', _resolvedBase);
+  _resolvedBase = resolveBaseUrl();
+  API_BASE_URL = _resolvedBase;
+  console.log("[SehatLine] API base URL ->", _resolvedBase);
   return _resolvedBase;
 }
 
