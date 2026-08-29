@@ -19,7 +19,9 @@
     "ml:train": "cd ../ml-service && python train_model.py",
     "ml:serve": "cd ../ml-service && python -m uvicorn server:app --host 127.0.0.1 --port 8000",
     "ml:loadtest": "cd ../ml-service && python loadtest.py",
-    "start:plain": "node server.js"
+    "start:plain": "node server.js",
+    "db-print": "node scripts/db-print.js",
+    "db-pdf": "node scripts/schema-dump.js"
   },
   "keywords": [
     "healthcare",
