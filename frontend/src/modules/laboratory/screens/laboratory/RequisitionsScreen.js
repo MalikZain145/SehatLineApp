@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
+  KeyboardAvoidingView,
+  Platform,
   View,
   Text,
   StyleSheet,
@@ -101,6 +103,7 @@ export default function RequisitionsScreen({ navigation }) {
 
       <GradientHeader title="Requisitions" subtitle="Request laboratory stock from Admin" />
 
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
@@ -568,6 +571,7 @@ export default function RequisitionsScreen({ navigation }) {
           );
         })}
       </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

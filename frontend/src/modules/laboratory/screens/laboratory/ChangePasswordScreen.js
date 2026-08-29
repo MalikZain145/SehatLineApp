@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 
 import {
+  KeyboardAvoidingView,
+  Platform,
   View,
   Text,
   StyleSheet,
@@ -115,6 +117,7 @@ export default function ChangePasswordScreen({
         },
       ]}
     >
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
@@ -405,6 +408,7 @@ export default function ChangePasswordScreen({
           </Text>
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

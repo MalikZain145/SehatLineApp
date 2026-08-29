@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import {
+  KeyboardAvoidingView,
+  Platform,
   View,
   Text,
   StyleSheet,
@@ -117,6 +119,7 @@ addInventoryItem({
 
       {/* ================= FORM ================= */}
 
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
@@ -277,6 +280,7 @@ addInventoryItem({
           </TouchableOpacity>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

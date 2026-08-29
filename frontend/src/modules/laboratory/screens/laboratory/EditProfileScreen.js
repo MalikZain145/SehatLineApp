@@ -9,6 +9,8 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
@@ -122,6 +124,11 @@ export default function EditProfileScreen({ navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <GradientHeader title="Edit Profile" />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
+      >
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {/* PROFILE PHOTO */}
         <View style={styles.profileSection}>
@@ -157,13 +164,14 @@ export default function EditProfileScreen({ navigation }) {
           )}
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { paddingBottom: 40 },
+  content: { paddingBottom: 160 },
 
   profileSection: { alignItems: "center", marginTop: 18, marginBottom: 6 },
   photo: { width: 96, height: 96, borderRadius: 48 },
