@@ -5,8 +5,15 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-const UPLOAD_DIR = path.join(__dirname, '..', '..', 'uploads');
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+// On serverless hosts (e.g. Vercel) the project filesystem is read-only — only
+// /tmp is writable — so writing to a project ./uploads folder would crash the
+// function at boot. Use /tmp there, and guard the mkdir either way.
+const UPLOAD_DIR = process.env.VERCEL
+  ? '/tmp/uploads'
+  : path.join(__dirname, '..', '..', 'uploads');
+try {
+  if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+} catch (e) { /* read-only fs — CNIC OCR still writes to /tmp per request */ }
 
 // Map the (validated) MIME type to a safe extension. We NEVER trust the
 // extension from the client-supplied originalname — otherwise an attacker could

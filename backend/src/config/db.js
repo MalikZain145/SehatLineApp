@@ -68,4 +68,18 @@ function printSchemas() {
   console.log(`\n${c.cyan}${line('─')}${c.reset}\n`);
 }
 
-module.exports = { connectDB, printSchemas };
+// Serverless-safe connection (Vercel adapter). Caches the connection across
+// function invocations and NEVER process.exit (that would kill the function).
+let _cached = global.__sehatline_db;
+async function connectDBCached() {
+  if (mongoose.connection.readyState === 1) return mongoose.connection;
+  if (!_cached) {
+    mongoose.set('strictQuery', true);
+    _cached = mongoose.connect(env.mongoUri, { serverSelectionTimeoutMS: 8000 });
+    global.__sehatline_db = _cached;
+  }
+  await _cached;
+  return mongoose.connection;
+}
+
+module.exports = { connectDB, printSchemas, connectDBCached };
