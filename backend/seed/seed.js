@@ -6,8 +6,11 @@
 // It is IDEMPOTENT: running it again updates existing seed accounts
 // (by email) instead of creating duplicates.
 //
-// All seed passwords are the SAME for easy testing (documented in README):
-//     SehatLine@123
+// Passwords:
+//   • admin@sehatline.com      → admin123
+//   • laboratory@sehatline.com → laboratory123
+//   • pharmacy@sehatline.com   → pharmacy123
+//   • every doctor + secondary staff account → doctor@123 (the DEFAULT_PASSWORD below)
 //
 // ⚠️  Change these passwords before any real deployment.
 
