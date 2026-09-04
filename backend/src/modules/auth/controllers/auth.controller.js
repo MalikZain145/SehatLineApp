@@ -10,6 +10,7 @@ const { createSession } = require('../services/auth.service');
 const { validateSignup, validateLogin } = require('../validations/auth.validation');
 const emailService = require('../../../services/email.service');
 const logger = require('../../../utils/logger');
+const { isValidCnicToken } = require('../../../utils/cnicToken');
 
 // A throwaway bcrypt hash used to equalize login timing when the account
 // doesn't exist (so response time can't be used to enumerate accounts).
@@ -64,13 +65,19 @@ async function signup(req, res, next) {
 
     // Do NOT trust `cnicVerified` from the body — anyone can send true.
     //
-    // /cnic/verify deletes the uploaded file whenever OCR rejects it or the
-    // details don't match. So an image that is still on disk is proof that it
-    // passed. Confirm both sides survived, and that the paths look like ones
-    // we issued rather than something crafted.
+    // Two forms of proof, both minted only by our own /cnic/verify:
+    //   • Local: /cnic/verify deletes the uploaded file on reject, so an image
+    //     still on disk is proof it passed. Confirm both sides survived and the
+    //     paths look like ones we issued (no traversal / crafted names).
+    //   • Serverless (Vercel): /tmp is ephemeral and per-instance, so the file
+    //     can't survive to here. /cnic/verify instead returns a short-lived
+    //     HMAC token we validate statelessly.
     const uploadsDir = path.join(__dirname, '../../../../uploads');
-    const isVerifiedImage = (p) => {
+    const isVerifiedImage = (p, side) => {
       if (!p || typeof p !== 'string') return false;
+      // Serverless proof: a signed, unexpired verification token.
+      if (isValidCnicToken(p, side)) return true;
+      // Local proof: the uploaded image is still on disk.
       const name = path.basename(p);
       // Reject traversal and anything that isn't a plain filename.
       if (name !== p.replace(/^\/uploads\//, '')) return false;
@@ -82,7 +89,7 @@ async function signup(req, res, next) {
       }
     };
 
-    const cnicVerified = isVerifiedImage(cnicFrontImage) && isVerifiedImage(cnicBackImage);
+    const cnicVerified = isVerifiedImage(cnicFrontImage, 'front') && isVerifiedImage(cnicBackImage, 'back');
     if (!cnicVerified) {
       logger.warn(`Signup rejected — CNIC not verified (${email})`);
       return fail(res, 422, 'Please verify both sides of your CNIC before creating an account.', 'CNIC_NOT_VERIFIED');

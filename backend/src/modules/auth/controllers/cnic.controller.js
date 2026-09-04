@@ -12,6 +12,17 @@ const fs = require('fs');
 const { detectCnic, matchCnicData } = require('../../../services/cnic.service');
 const User = require('../models/User');
 const logger = require('../../../utils/logger');
+const { signCnicToken } = require('../../../utils/cnicToken');
+
+// On serverless (Vercel) the uploaded file lives in an ephemeral, per-instance
+// /tmp and won't survive until the final /register call. So instead of handing
+// back a file path (which register proves by fs.existsSync), we hand back a
+// short-lived signed token that register can validate statelessly. Locally we
+// keep returning the real /uploads path so the on-disk proof still works.
+const SERVERLESS = !!(process.env.VERCEL || process.env.NOW_REGION || process.env.AWS_REGION);
+function issuedPathFor(side, filePath) {
+  return SERVERLESS ? signCnicToken(side) : `/uploads/${path.basename(filePath)}`;
+}
 
 // Build the $or list to detect an already-registered CNIC / CDA card from the
 // user's TYPED values (used both after a strong OCR match and in the hosted
@@ -77,7 +88,7 @@ async function verifyCnic(req, res, next) {
         verified: false,
         message: 'CNIC image accepted. Full card verification is limited on the server.',
         side,
-        imagePath: `/uploads/${path.basename(req.file.path)}`,
+        imagePath: issuedPathFor(side, req.file.path),
         verdict: { isCnic: true, confidence: 0, degraded: true },
       });
     }
@@ -162,7 +173,7 @@ async function verifyCnic(req, res, next) {
       success: true,
       message: 'CNIC verified successfully',
       side,
-      imagePath: `/uploads/${path.basename(req.file.path)}`,
+      imagePath: issuedPathFor(side, req.file.path),
       verdict: { isCnic: verdict.isCnic, confidence: verdict.confidence },
     });
   } catch (err) {
