@@ -38,8 +38,11 @@ router.get('/doctors', adminOnly, doctors.listDoctors);
 router.post('/doctors', adminOnly, doctors.addDoctor);
 router.post('/doctors/bulk', adminOnly, doctors.addDoctorsBulk);
 router.post('/doctors/import-excel', adminOnly, uploadSheet.single('file'), doctors.addDoctorsFromExcel);
-router.patch('/doctors/:doctorId', adminOnly, validateObjectId('doctorId'), doctors.updateDoctor);
-router.delete('/doctors/:doctorId', adminOnly, validateObjectId('doctorId'), doctors.deleteDoctor);
+// NOTE: :doctorId is our own slug (e.g. "cardio_ayesha_k1a2"), NOT a Mongo
+// ObjectId — so it must NOT go through validateObjectId (that rejected every
+// edit/delete with "invalid identifier"). The controllers look up by the slug.
+router.patch('/doctors/:doctorId', adminOnly, doctors.updateDoctor);
+router.delete('/doctors/:doctorId', adminOnly, doctors.deleteDoctor);
 
 // Patients — list, classify chronic, delete
 router.get('/patients', adminOnly, patients.listPatients);

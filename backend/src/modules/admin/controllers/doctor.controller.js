@@ -44,7 +44,7 @@ async function listDoctors(req, res, next) {
 // The admin can create an "empty" account with just an email + category — the
 // doctor fills their own name/specialization/etc on first login. A doctor only
 // becomes BOOKABLE (active) once they have a real name AND specialization.
-async function createOneDoctor(body) {
+async function createOneDoctor(body, opts = {}) {
   const emailIn = String(body.email || '').trim().toLowerCase();
   const nameIn = String(body.name || '').trim();
   if (!nameIn && !emailIn) throw Object.assign(new Error('A doctor name or email is required.'), { status: 400 });
@@ -71,10 +71,18 @@ async function createOneDoctor(body) {
   const usingDefault = !String(body.password || '').trim();
   const password = usingDefault ? 'doctor123' : String(body.password).trim();
 
-  // Bookable only when the profile has a real name AND specialization. Empty
-  // accounts stay hidden from patients until the doctor completes their profile.
+  // Bookable status:
+  //   • explicit body.active wins (true/false),
+  //   • else when the caller opts into defaultActive (a deliberate admin add),
+  //     the doctor is active straight away,
+  //   • else fall back to "bookable only once name + specialization are set"
+  //     (used by email-only bulk/Excel imports, which stay hidden until the
+  //     doctor completes their own profile).
   const profileComplete = !!(nameIn && specialization);
-  const active = body.active === false ? false : profileComplete;
+  let active;
+  if (body.active === true) active = true;
+  else if (body.active === false) active = false;
+  else active = opts.defaultActive ? true : profileComplete;
 
   // Bookable Doctor row (what patients see).
   await Doctor.findOneAndUpdate(
@@ -116,7 +124,15 @@ async function createOneDoctor(body) {
 // ── ADD ONE ──────────────────────────────────────────────────────────────────
 async function addDoctor(req, res, next) {
   try {
-    const created = await createOneDoctor(req.body || {});
+    // Email is mandatory for a doctor added from the admin form — it's their
+    // login identity. (Bulk/Excel imports keep their own, more lenient rules.)
+    const email = String(req.body?.email || '').trim();
+    if (!email) return fail(res, 400, 'Doctor email is required.', 'VALIDATION');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return fail(res, 400, 'Please enter a valid doctor email.', 'VALIDATION');
+    }
+    // A doctor added deliberately by the admin is active (bookable) right away.
+    const created = await createOneDoctor(req.body || {}, { defaultActive: true });
     logger.db('CREATE', 'Doctor', `admin added ${created.loginEmail}`);
     emit(req, 'admin:update', { type: 'doctors' });
     return res.json({ success: true, message: 'Doctor added.', doctor: created });

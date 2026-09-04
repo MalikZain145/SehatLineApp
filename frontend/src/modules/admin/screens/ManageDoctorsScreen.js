@@ -58,10 +58,15 @@ export default function ManageDoctorsScreen({ navigation }) {
   };
 
   const save = async () => {
-    // Empty-profile creation: a name OR an email is enough — the doctor fills
-    // the rest (specialization, days, photo…) on first login.
-    if (!editing && !form.name.trim() && !form.email.trim()) {
-      showInfo({ title: 'Required', message: 'Enter at least a name or an email.', icon: 'alert-circle' }); return;
+    // A doctor's login email is mandatory — it's their account identity.
+    if (!editing) {
+      const email = form.email.trim();
+      if (!email) {
+        showInfo({ title: 'Email Required', message: "Enter the doctor's login email.", icon: 'alert-circle' }); return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showInfo({ title: 'Invalid Email', message: 'Please enter a valid email address.', icon: 'alert-circle' }); return;
+      }
     }
     setSaving(true);
     try {
@@ -232,7 +237,7 @@ export default function ManageDoctorsScreen({ navigation }) {
               <TouchableOpacity onPress={() => setShowForm(false)}><Ionicons name="close" size={22} color={COLORS.text} /></TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
-              {!editing && <Text style={styles.formNote}>Only a name or email is required. The doctor fills their specialization, days and photo on first login (they're bookable once done).</Text>}
+              {!editing && <Text style={styles.formNote}>A login email is required. The doctor can fill their specialization, days and photo on first login. Added doctors are active right away.</Text>}
               {field('Full Name (optional)', 'name')}
               {field('Specialization (optional)', 'specialization', { placeholder: 'doctor can set this themselves' })}
 
@@ -271,7 +276,7 @@ export default function ManageDoctorsScreen({ navigation }) {
                   This doctor will serve the Chronic OPD token queue.
                 </Text>
               )}
-              {!editing && field('Login Email (optional)', 'email', { placeholder: 'auto-generated if blank', autoCapitalize: 'none', keyboardType: 'email-address' })}
+              {!editing && field('Login Email (required)', 'email', { placeholder: 'doctor@example.com', autoCapitalize: 'none', keyboardType: 'email-address' })}
               {field('Phone (optional)', 'phone', { placeholder: 'e.g. 3001234567', autoCapitalize: 'none', keyboardType: 'phone-pad' })}
               {field(editing ? 'New Password (optional)' : 'Password (optional)', 'password', { placeholder: 'defaults to doctor@123', autoCapitalize: 'none', secure: false })}
               {field('Room', 'room', { placeholder: 'e.g. C-101' })}
