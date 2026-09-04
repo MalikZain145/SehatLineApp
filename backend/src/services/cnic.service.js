@@ -440,12 +440,17 @@ function analyzeText(rawText, side = 'front') {
 // place it in backend/tessdata/ and set TESS_LANG_PATH=./tessdata
 // One OCR pass on a prepared buffer (PSM 6 = single uniform block, best for ID
 // cards). Model is local, so recognition is a few seconds, not a download.
-async function ocrOnce(buffer) {
-  const worker = await getOcrWorker();
-  const recognizePromise = worker.recognize(buffer);
-  const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('OCR timeout')), 30000));
-  const { data } = await Promise.race([recognizePromise, timeoutPromise]);
-  return data.text || '';
+async function ocrOnce(buffer, timeoutMs = 30000) {
+  // Race worker acquisition + recognition against a timeout. On serverless
+  // (Vercel free tier ~10s cap) we pass a short timeout so a slow cold-start
+  // OCR is abandoned gracefully instead of getting the whole request killed.
+  const run = (async () => {
+    const worker = await getOcrWorker();
+    const { data } = await worker.recognize(buffer);
+    return data.text || '';
+  })();
+  const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('OCR timeout')), timeoutMs));
+  return Promise.race([run, timeoutPromise]);
 }
 
 // A read is "strong" (stop searching) when it's clearly a CNIC — and, for the
@@ -457,22 +462,33 @@ function isStrongRead(verdict, side, text) {
 }
 
 async function detectCnic(imagePathOrBuffer, side = 'front') {
+  // On serverless (Vercel free tier) the whole HTTP function is killed at ~10s,
+  // so we cannot afford several multi-second OCR passes. There we do a single
+  // upright pass with a tight timeout and an overall deadline; if OCR can't
+  // finish in time we return a `degraded` verdict so the caller can soft-pass
+  // signup instead of hard-failing. Locally (no timeout pressure) we keep the
+  // full multi-orientation search for maximum accuracy.
+  const SERVERLESS = !!(process.env.VERCEL || process.env.NOW_REGION || process.env.AWS_REGION);
+  const orientations = SERVERLESS ? [0] : [0, 180, 90, 270];
+  const perPassMs = SERVERLESS ? 7000 : 30000;
+  const deadline = Date.now() + (SERVERLESS ? 8000 : 120000);
+
   try {
-    // Try UPRIGHT first (fast path). Only if that isn't a strong read do we try
-    // upside-down, then the two sideways orientations — early-exiting the moment
-    // we get a clean read. So an upright card finishes in a single pass, while a
-    // rotated/awkward one still succeeds without the user retrying by hand.
-    const orientations = [0, 180, 90, 270];
     let best = null;
+    let anyOcrOk = false;      // did ANY OCR pass actually return text?
     for (const deg of orientations) {
+      if (Date.now() > deadline) break;
       let text = '';
       try {
         const buf = await preprocess(imagePathOrBuffer, deg);
-        text = await ocrOnce(buf);
+        text = await ocrOnce(buf, perPassMs);
+        anyOcrOk = true;
       } catch (e) {
         // If preprocessing/OCR failed, fall back to the raw image for upright.
-        if (deg === 0) { try { text = await ocrOnce(imagePathOrBuffer); } catch (_) { text = ''; } }
-        else continue;
+        if (deg === 0) {
+          try { text = await ocrOnce(imagePathOrBuffer, perPassMs); anyOcrOk = true; }
+          catch (_) { text = ''; }
+        } else continue;
       }
       const verdict = analyzeText(text, side);
       const packed = {
@@ -482,13 +498,23 @@ async function detectCnic(imagePathOrBuffer, side = 'front') {
       if (!best || (verdict.confidence || 0) > (best.confidence || 0)) best = packed;
       if (isStrongRead(verdict, side, text)) { best = packed; break; }
     }
-    return best || {
-      ok: false, isCnic: false, confidence: 0, rawText: '',
+    if (best) {
+      // On serverless a single rushed pass may read a real card weakly. Rather
+      // than falsely reject a legitimate user, treat a non-confident hosted
+      // read as degraded so the caller soft-passes (a confident read still goes
+      // through the normal strict match path).
+      if (SERVERLESS && !best.isCnic) best.degraded = true;
+      return best;
+    }
+    // No usable read at all — on serverless this is almost always an OCR
+    // timeout (cold start / CPU limit), so flag it degraded for a soft-pass.
+    return {
+      ok: false, degraded: SERVERLESS, isCnic: false, confidence: 0, rawText: '',
       signals: { hasCnicNumber: false, matchedKeywords: [] },
     };
   } catch (err) {
     return {
-      ok: false, isCnic: false, confidence: 0, error: err.message, rawText: '',
+      ok: false, degraded: SERVERLESS, isCnic: false, confidence: 0, error: err.message, rawText: '',
       signals: { hasCnicNumber: false, matchedKeywords: [] },
     };
   }

@@ -13,6 +13,29 @@ const { detectCnic, matchCnicData } = require('../../../services/cnic.service');
 const User = require('../models/User');
 const logger = require('../../../utils/logger');
 
+// Build the $or list to detect an already-registered CNIC / CDA card from the
+// user's TYPED values (used both after a strong OCR match and in the hosted
+// soft-pass path where OCR could not run in time). Returns the existing user
+// or null, plus whether the hit was on the CDA card.
+async function findExistingByIdentity(body, readCnic = '') {
+  const dupChecks = [];
+  const typedCnic = String(body.cnic || '').trim();
+  if (typedCnic) dupChecks.push({ cnic: typedCnic });
+  if (readCnic) {
+    const dashed = `${readCnic.slice(0, 5)}-${readCnic.slice(5, 12)}-${readCnic.slice(12)}`;
+    dupChecks.push({ cnic: readCnic }, { cnic: dashed });
+  }
+  const typedCard = String(body.cdaCard || '').trim();
+  const normCard = typedCard
+    ? (typedCard.endsWith('-RB') ? typedCard : `${typedCard}-RB`)
+    : '';
+  if (normCard) dupChecks.push({ cdaCard: normCard });
+
+  if (!dupChecks.length) return { existing: null, normCard };
+  const existing = await User.findOne({ $or: dupChecks });
+  return { existing, normCard };
+}
+
 // POST /api/auth/cnic/verify  (multipart: field "image", "side", and optional
 // user fields: cnic, name, dob — sent for the front image to enable matching)
 async function verifyCnic(req, res, next) {
@@ -25,6 +48,39 @@ async function verifyCnic(req, res, next) {
     logger.info(`CNIC verify requested (${side}) from ${req.clientIp}`);
 
     const verdict = await detectCnic(req.file.path, side);
+
+    // ---- Hosted soft-pass ----
+    // On the serverless (Vercel free tier) backend, OCR can't reliably finish
+    // inside the platform's ~10s function limit. Rather than block signup, we
+    // accept the captured image using the user's typed details. We STILL run
+    // the duplicate guard (a cheap DB query) so the same CNIC/CDA card can't
+    // create two accounts. The response is flagged unverified so it's honest.
+    if (verdict.degraded) {
+      logger.warn(`CNIC OCR degraded on server — soft-pass (${side})`);
+      if (side === 'front') {
+        const { existing, normCard } = await findExistingByIdentity(req.body);
+        if (existing) {
+          try { fs.unlinkSync(req.file.path); } catch (_) {}
+          const isCard = normCard && existing.cdaCard === normCard;
+          return res.status(409).json({
+            success: false,
+            code: 'ALREADY_REGISTERED',
+            field: isCard ? 'cdaCard' : 'cnic',
+            message: isCard
+              ? 'This CDA card number is already registered to an account. Please log in instead.'
+              : 'This CNIC is already registered to an account. Please log in instead.',
+          });
+        }
+      }
+      return res.json({
+        success: true,
+        verified: false,
+        message: 'CNIC image accepted. Full card verification is limited on the server.',
+        side,
+        imagePath: `/uploads/${path.basename(req.file.path)}`,
+        verdict: { isCnic: true, confidence: 0, degraded: true },
+      });
+    }
 
     // If it doesn't look like a CNIC, delete the saved file (don't keep junk).
     if (!verdict.isCnic) {
@@ -85,36 +141,19 @@ async function verifyCnic(req, res, next) {
       // Before we let signup continue, make sure this person (or this CDA
       // card) doesn't already hold an account. Catching it here saves the
       // user from filling in the rest of the form for nothing.
-      const dupChecks = [];
-      const typedCnic = String(req.body.cnic || '').trim();
-      const readCnic = match.extracted.cnic || '';
-      if (typedCnic) dupChecks.push({ cnic: typedCnic });
-      // Also check the digits-only form we read off the card.
-      if (readCnic) {
-        const dashed = `${readCnic.slice(0, 5)}-${readCnic.slice(5, 12)}-${readCnic.slice(12)}`;
-        dupChecks.push({ cnic: readCnic }, { cnic: dashed });
-      }
-      const typedCard = String(req.body.cdaCard || '').trim();
-      const normCard = typedCard
-        ? (typedCard.endsWith('-RB') ? typedCard : `${typedCard}-RB`)
-        : '';
-      if (normCard) dupChecks.push({ cdaCard: normCard });
-
-      if (dupChecks.length) {
-        const existing = await User.findOne({ $or: dupChecks });
-        if (existing) {
-          try { fs.unlinkSync(req.file.path); } catch (_) {}
-          const isCard = normCard && existing.cdaCard === normCard;
-          logger.warn(`CNIC verify blocked — ${isCard ? 'CDA card' : 'CNIC'} already registered (${existing.email})`);
-          return res.status(409).json({
-            success: false,
-            code: 'ALREADY_REGISTERED',
-            field: isCard ? 'cdaCard' : 'cnic',
-            message: isCard
-              ? 'This CDA card number is already registered to an account. Please log in instead.'
-              : 'This CNIC is already registered to an account. Please log in instead.',
-          });
-        }
+      const { existing, normCard } = await findExistingByIdentity(req.body, match.extracted.cnic || '');
+      if (existing) {
+        try { fs.unlinkSync(req.file.path); } catch (_) {}
+        const isCard = normCard && existing.cdaCard === normCard;
+        logger.warn(`CNIC verify blocked — ${isCard ? 'CDA card' : 'CNIC'} already registered (${existing.email})`);
+        return res.status(409).json({
+          success: false,
+          code: 'ALREADY_REGISTERED',
+          field: isCard ? 'cdaCard' : 'cnic',
+          message: isCard
+            ? 'This CDA card number is already registered to an account. Please log in instead.'
+            : 'This CNIC is already registered to an account. Please log in instead.',
+        });
       }
     }
 
