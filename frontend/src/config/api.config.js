@@ -17,13 +17,11 @@ import Constants from 'expo-constants';
 import { Platform, NativeModules } from 'react-native';
 
 // ---- Production (hosted) backend, used only when USE_PRODUCTION = true ----
-// IMPORTANT: this must match your ACTUAL Render service URL. If you name the
-// Render service "sehatline-backend" the URL is exactly the one below; if Render
-// gave a different name/suffix, paste that full https URL here (no trailing /).
-const PRODUCTION_API_URL = 'https://sehatlineapp1-9x00bewm.b4a.run';
-// FALSE = the app auto-detects your PC's LAN IP (local development). Set TRUE
-// only when shipping an APK that must talk to a fixed hosted backend URL.
-const USE_PRODUCTION = false;
+// Live backend hosted on Vercel. The shipped APK talks to this URL.
+const PRODUCTION_API_URL = 'https://sehatlineapp-arfk.vercel.app';
+// TRUE = the app uses the hosted backend above (for the APK / demo).
+// Flip to FALSE for local development against your PC's LAN IP.
+const USE_PRODUCTION = true;
 
 const LOCAL_PORT = 5000;
 
