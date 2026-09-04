@@ -7,16 +7,38 @@
 // Fire-and-forget: any failure here must never break the action that triggered
 // the notification. Invalid/expired tokens are pruned so we stop targeting dead
 // devices.
+//
+// NOTE: expo-server-sdk newer versions are ESM-only, so a top-level
+// require('expo-server-sdk') crashes Node with ERR_REQUIRE_ESM (seen on Vercel).
+// We therefore load it LAZILY with dynamic import() — which works for both ESM
+// and CommonJS builds — and disable push gracefully if it can't be loaded.
 
-const { Expo } = require('expo-server-sdk');
 const logger = require('../utils/logger');
 
-const expo = new Expo();
+let _expo = null;   // Expo client instance
+let _Expo = null;   // Expo class (for isExpoPushToken)
+let _tried = false;
+
+async function getExpo() {
+  if (_expo || _tried) return _expo;
+  _tried = true;
+  try {
+    const mod = await import('expo-server-sdk');
+    _Expo = mod.Expo || (mod.default && mod.default.Expo) || mod.default;
+    if (_Expo) _expo = new _Expo();
+  } catch (e) {
+    logger.warn(`Push disabled (expo-server-sdk could not load): ${e.message}`);
+  }
+  return _expo;
+}
 
 // Send a push to one or more Expo tokens. Returns the list of tokens that are
 // no longer valid (DeviceNotRegistered) so the caller can remove them.
-async function sendPush(tokens, { title, body, data = {} }) {
-  const valid = (Array.isArray(tokens) ? tokens : [tokens]).filter((t) => Expo.isExpoPushToken(t));
+async function sendPush(tokens, { title, body, data = {} } = {}) {
+  const expo = await getExpo();
+  if (!expo || !_Expo) return { invalidTokens: [] };
+
+  const valid = (Array.isArray(tokens) ? tokens : [tokens]).filter((t) => _Expo.isExpoPushToken(t));
   if (!valid.length) return { invalidTokens: [] };
 
   const messages = valid.map((to) => ({
@@ -41,11 +63,8 @@ async function sendPush(tokens, { title, body, data = {} }) {
         continue;
       }
       tickets.forEach((ticket, i) => {
-        if (ticket.status === 'error') {
-          // A DeviceNotRegistered error means the token is dead — prune it.
-          if (ticket.details && ticket.details.error === 'DeviceNotRegistered') {
-            invalidTokens.push(chunk[i].to);
-          }
+        if (ticket.status === 'error' && ticket.details && ticket.details.error === 'DeviceNotRegistered') {
+          invalidTokens.push(chunk[i].to);
         }
       });
     }
@@ -55,4 +74,4 @@ async function sendPush(tokens, { title, body, data = {} }) {
   return { invalidTokens };
 }
 
-module.exports = { sendPush, Expo };
+module.exports = { sendPush };
