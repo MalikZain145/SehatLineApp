@@ -1,22 +1,37 @@
-// Vercel serverless entry AT REPO ROOT — used when Vercel's Root Directory is
-// the repository root (default). It wraps the Express app that lives in backend/.
-// (backend/api/index.js is the equivalent for when Root Directory = backend.)
-//
-// NOTE: Socket.IO (live queue), node-cron and the ML subprocess do NOT run on
-// Vercel (serverless). REST API + MongoDB work; the app uses pull-to-refresh.
+// Vercel serverless entry AT REPO ROOT (Root Directory = repo root / default).
+// Wraps the Express app in backend/. Socket.IO, cron and the ML subprocess do
+// NOT run on Vercel — REST API + MongoDB work; app uses pull-to-refresh.
 process.env.ML_AUTOSTART = 'false';
 
-const app = require('../backend/src/app');
-const { connectDBCached } = require('../backend/src/config/db');
+// Load at module scope but capture any load-time error so we can SURFACE it in
+// the HTTP response instead of an opaque 500 (helps diagnose without dashboard logs).
+let app = null;
+let connectDBCached = null;
+let loadErr = null;
+try {
+  app = require('../backend/src/app');
+  ({ connectDBCached } = require('../backend/src/config/db'));
+} catch (e) {
+  loadErr = e;
+}
 
 module.exports = async (req, res) => {
+  const json = (code, obj) => {
+    res.statusCode = code;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify(obj));
+  };
+  if (loadErr) {
+    return json(500, { success: false, code: 'LOAD_ERROR', message: loadErr.message, where: (loadErr.stack || '').split('\n').slice(0, 6) });
+  }
   try {
     await connectDBCached();
   } catch (e) {
-    res.statusCode = 503;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ success: false, code: 'DB_DOWN', message: 'Database connection failed. Set MONGO_URI (Atlas) in Vercel env vars.' }));
-    return;
+    return json(503, { success: false, code: 'DB_DOWN', message: e.message });
   }
-  return app(req, res);
+  try {
+    return app(req, res);
+  } catch (e) {
+    return json(500, { success: false, code: 'RUN_ERROR', message: e.message });
+  }
 };
