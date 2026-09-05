@@ -147,6 +147,18 @@ export default function AppointmentTrackScreen({
           </>}
       </ScrollView>
 
+      {/* Escape hatch: back is locked, but the patient can move this
+          appointment to another slot/doctor instead of being stuck here. */}
+      {appt && !done && <View style={styles.footer}>
+        <TouchableOpacity style={styles.rescheduleBtn} activeOpacity={0.8} onPress={() => navigation.navigate('BookAppointmentScreen', {
+        rescheduleId: appt._id,
+        currentLabel: `${appt.doctorName || 'Specialist'} • ${appt.time}`
+      })}>
+          <Ionicons name="calendar-outline" size={16} color={COLORS.primary} />
+          <Text style={styles.rescheduleText}>Reschedule Appointment?</Text>
+        </TouchableOpacity>
+      </View>}
+
       {/* Thank-you when the appointment is over */}
       <ThemedPrompt visible={done} variant="success" icon="checkmark-circle" title="Thank You!" message="Thank You for choosing CDA Hospital. We wish you good health." primaryLabel="Back to Home" onPrimary={() => {
       setDone(false);
@@ -303,5 +315,27 @@ const makeStyles = COLORS => StyleSheet.create({
   ghostBtnText: {
     color: COLORS.textSecondary,
     fontWeight: '600'
+  },
+  footer: {
+    alignItems: 'center',
+    paddingVertical: Platform.OS === 'ios' ? 20 : 14,
+    paddingHorizontal: 20,
+    backgroundColor: COLORS.background
+  },
+  rescheduleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary + '10'
+  },
+  rescheduleText: {
+    color: COLORS.primary,
+    fontWeight: '800',
+    fontSize: 14
   }
 });

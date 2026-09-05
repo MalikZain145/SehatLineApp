@@ -33,13 +33,21 @@ const label12 = t24 => {
   return `${String(hh).padStart(2, '0')}:${String(m).padStart(2, '0')} ${mer}`;
 };
 export default function BookAppointmentScreen({
-  navigation
+  navigation,
+  route
 }) {
   const {
     colors: COLORS
   } = useTheme();
   const styles = makeStyles(COLORS);
   const bottomInset = useBottomInset();
+  // Reschedule mode: when opened with a rescheduleId, this screen MOVES an
+  // existing booked appointment (new date/time and optionally a new doctor)
+  // instead of creating a new one. Used by the "Reschedule Appointment?" link
+  // on the live queue screen.
+  const rescheduleId = route?.params?.rescheduleId || null;
+  const currentLabel = route?.params?.currentLabel || '';
+  const isReschedule = !!rescheduleId;
   const [doctors, setDoctors] = useState([]);
   const [loadingDoctors, setLoadingDoctors] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -93,11 +101,14 @@ export default function BookAppointmentScreen({
   // Mandatory doctor feedback for the last visit before booking a new one.
   const [pendingVisit, setPendingVisit] = useState(null);
   const loadPending = useCallback(async () => {
+    // In reschedule mode we must not gate on prior-visit feedback — this screen
+    // is the escape hatch from a locked queue, so it has to stay unblocked.
+    if (isReschedule) return;
     try {
       const fb = await feedbackService.getPending();
       setPendingVisit(fb?.pending ? fb.visit : null);
     } catch (e) {/* offline */}
-  }, []);
+  }, [isReschedule]);
   useEffect(() => {
     loadPending();
     const focus = navigation.addListener?.('focus', loadPending);
@@ -161,32 +172,44 @@ export default function BookAppointmentScreen({
     if (!selectedTime) return info('Select a Time', 'Please choose a time slot.');
     setBusy(true);
     try {
-      const res = await appointmentService.book({
-        date: toDateStr(selectedDate),
-        time: selectedTime,
-        doctorId: selectedDoctor.id,
-        reason: visitType || 'Consultation'
-      });
+      const dateStr = toDateStr(selectedDate);
+      const res = isReschedule
+        ? await appointmentService.reschedule(rescheduleId, {
+            date: dateStr,
+            time: selectedTime,
+            doctorId: selectedDoctor.id
+          })
+        : await appointmentService.book({
+            date: dateStr,
+            time: selectedTime,
+            doctorId: selectedDoctor.id,
+            reason: visitType || 'Consultation'
+          });
       if (res?.appointment) {
         const dLabel = `${DOW[selectedDate.getDay()]}, ${selectedDate.getDate()} ${MON[selectedDate.getMonth()]}`;
         setPrompt({
           visible: true,
           variant: 'success',
           icon: 'checkmark-circle',
-          title: 'Appointment Confirmed',
+          title: isReschedule ? 'Appointment Rescheduled' : 'Appointment Confirmed',
           message: `${selectedDoctor.name}\n${dLabel} at ${label12(selectedTime)}`,
           primaryLabel: 'View Appointment',
           onPrimary: () => {
             closePrompt();
-            navigation.navigate('AppointmentListScreen');
+            // After a reschedule the old slot is no longer "active", so leave
+            // the locked queue screen and land on the appointments list.
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'AppointmentListScreen' }]
+            });
           }
         });
         setSelectedTime('');
       } else {
-        info('Booking Failed', res?.message || 'Could not book appointment.');
+        info(isReschedule ? 'Reschedule Failed' : 'Booking Failed', res?.message || 'Could not update appointment.');
       }
     } catch (e) {
-      info('Cannot Book', e.message || 'Please try again.');
+      info(isReschedule ? 'Cannot Reschedule' : 'Cannot Book', e.message || 'Please try again.');
     } finally {
       setBusy(false);
     }
@@ -202,12 +225,20 @@ export default function BookAppointmentScreen({
   });
   const canBook = selectedDoctor && selectedDate && selectedTime;
   return <View style={styles.container}>
-      <ScreenHeader title="Book Appointment" subtitle="See a specialist" onBack={() => navigation.goBack()} />
+      <ScreenHeader title={isReschedule ? 'Reschedule Appointment' : 'Book Appointment'} subtitle={isReschedule ? 'Pick a new doctor, date & time' : 'See a specialist'} onBack={() => navigation.goBack()} />
 
       {loadingDoctors ? <View style={styles.center}><ActivityIndicator size="large" color={COLORS.primary} /></View> : <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{
       padding: 20,
       paddingBottom: bottomInset + 30
     }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} tintColor={COLORS.primary} />}>
+          {/* Current slot banner (reschedule mode) */}
+          {isReschedule && !!currentLabel && <FadeInView delay={20}>
+            <View style={styles.currentBanner}>
+              <Ionicons name="information-circle" size={18} color={COLORS.primary} />
+              <Text style={styles.currentBannerText}>Current: {currentLabel}. Choose a new slot below to move it.</Text>
+            </View>
+          </FadeInView>}
+
           {/* Step 1 — Doctor */}
           <FadeInView delay={40}>
             <Text style={styles.stepTitle}>Choose a doctor</Text>
@@ -297,7 +328,7 @@ export default function BookAppointmentScreen({
           {busy ? <ActivityIndicator color="#FFF" /> : <>
               <Ionicons name="calendar" size={18} color="#FFF" />
               <Text style={styles.bookBtnText}>
-                {!selectedDoctor ? 'Select a doctor' : !selectedTime ? 'Select a time' : 'Book Appointment'}
+                {!selectedDoctor ? 'Select a doctor' : !selectedTime ? 'Select a time' : isReschedule ? 'Reschedule Appointment' : 'Book Appointment'}
               </Text>
             </>}
         </TouchableOpacity>
@@ -321,6 +352,24 @@ const makeStyles = COLORS => StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center'
+  },
+  currentBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: COLORS.primary + '14',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '33',
+    padding: 12,
+    marginTop: 6
+  },
+  currentBannerText: {
+    flex: 1,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: COLORS.primary,
+    lineHeight: 17
   },
   stepTitle: {
     fontSize: 16,

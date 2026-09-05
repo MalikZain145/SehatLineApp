@@ -91,10 +91,8 @@ const AppointmentDetailScreen = ({
     });
   };
   const handleReschedule = () => navigation.navigate('BookAppointmentScreen', {
-    reschedule: true,
-    appointmentId: appointment.id,
-    doctorName: appointment.doctorName,
-    specialty: appointment.specialty
+    rescheduleId: appointment.id || appointment._id,
+    currentLabel: `${appointment.doctorName || appointment.specialty || 'Specialist'} • ${appointment.time || ''}`.trim()
   });
   const handleViewQueue = () => navigation.navigate('LiveTokenQueueScreen', {
     tokenNo: appointment.tokenNo,

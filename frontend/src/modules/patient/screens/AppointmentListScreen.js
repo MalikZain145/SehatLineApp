@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, Dimensions, ActivityIndicator, Alert, Animated, RefreshControl, Platform, Share, Modal } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, Dimensions, ActivityIndicator, Alert, Animated, RefreshControl, Platform, Share, Modal, Image } from 'react-native';
 // SafeAreaView from react-native is deprecated; this one handles notches
 // and the Android gesture bar correctly.
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import { SHADOWS, COLORS } from '../../../theme'; // COLORS = static palette for
 import { showConfirm } from '../../../components/confirm';
 import appointmentService from '../services/appointmentService';
 import { useTheme } from "../../../context/ThemeContext";
+import { useSession } from "../../../context/SessionContext";
 const {
   width,
   height
@@ -154,6 +155,7 @@ const AppointmentListScreen = ({
     colors: COLORS,
     isDark
   } = useTheme();
+  const { user } = useSession();
   const styles = makeStyles(COLORS);
   const [activeTab, setActiveTab] = useState('upcoming');
   const [appointments, setAppointments] = useState([]);
@@ -331,9 +333,13 @@ const AppointmentListScreen = ({
             <View style={[styles.avatar, {
             backgroundColor: deptCfg.color
           }]}>
-              <Text style={styles.avatarText}>
-                {item.patientName ? item.patientName[0].toUpperCase() : 'P'}
-              </Text>
+              {user?.profilePic ? (
+                <Image source={{ uri: user.profilePic }} style={styles.avatarImg} />
+              ) : (
+                <Text style={styles.avatarText}>
+                  {item.patientName ? item.patientName[0].toUpperCase() : 'P'}
+                </Text>
+              )}
             </View>
             <View style={styles.headerInfo}>
               <Text style={styles.patientName}>{item.patientName}</Text>
@@ -709,6 +715,11 @@ const makeStyles = COLORS => StyleSheet.create({
     color: COLORS.white,
     fontSize: wp(4.5),
     fontWeight: '700'
+  },
+  avatarImg: {
+    width: wp(11),
+    height: wp(11),
+    borderRadius: wp(5.5)
   },
   headerInfo: {
     flex: 1
